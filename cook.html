@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Roulette Logger v2</title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #f5f5f5;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 2rem;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    .logger-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    input, button, select {
+      padding: 0.5rem;
+      background: #1e1e1e;
+      border: 1px solid #333;
+      color: white;
+      border-radius: 6px;
+    }
+    button {
+      cursor: pointer;
+      background: #272727;
+    }
+    .history {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      padding: 1rem;
+      border-radius: 6px;
+    }
+    .entry {
+      margin-bottom: 0.5rem;
+    }
+    .stats, .filters, .predictor {
+      margin-top: 2rem;
+    }
+    .wheel-section {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Roulette Spin Logger v2</h1>
+  <div class="logger-form">
+    <input type="text" id="dealer" placeholder="Dealer Name" />
+    <input type="number" id="number" placeholder="Result (0-36)" min="0" max="36" />
+    <input type="text" id="lightning" placeholder="Lightning (e.g. 8x100)" />
+    <select id="wheelDirection">
+      <option value="">Wheel Direction</option>
+      <option value="CW">Clockwise</option>
+      <option value="CCW">Counter-clockwise</option>
+    </select>
+    <select id="ballDirection">
+      <option value="">Ball Direction</option>
+      <option value="CW">Clockwise</option>
+      <option value="CCW">Counter-clockwise</option>
+    </select>
+    <select id="strength">
+      <option value="">Spin Strength</option>
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+    <button onclick="logSpin()">Log Spin</button>
+  </div>
+
+  <div class="filters">
+    <h2>Filter by Dealer</h2>
+    <select id="dealerFilter" onchange="filterByDealer()">
+      <option value="">All Dealers</option>
+    </select>
+  </div>
+
+  <div class="history" id="history"></div>
+  <div class="stats" id="stats"></div>
+
+  <div class="predictor">
+    <h2>Predicted Hot Zones</h2>
+    <div id="predictor"></div>
+  </div>
+
+  <script>
+    const spins = [];
+    const frequency = Array(37).fill(0);
+    const wheelSections = {
+      voisins: [22,18,29,7,28,12,35,3,26,0,32,15,19,4,21],
+      orphelins: [1,20,14,31,9,17,6,34],
+      tiers: [27,13,36,11,30,8,23,10,5,24,16,33]
+    };
+
+    function logSpin() {
+      const dealer = document.getElementById('dealer').value;
+      const number = parseInt(document.getElementById('number').value);
+      const lightning = document.getElementById('lightning').value;
+      const wheelDirection = document.getElementById('wheelDirection').value;
+      const ballDirection = document.getElementById('ballDirection').value;
+      const strength = document.getElementById('strength').value;
+      const timestamp = new Date().toLocaleTimeString();
+
+      if (isNaN(number) || number < 0 || number > 36) return alert("Enter a valid number (0-36)");
+
+      spins.push({ dealer, number, lightning, wheelDirection, ballDirection, strength, timestamp });
+      frequency[number]++;
+      updateHistory();
+      updateStats();
+      updatePredictor();
+      updateDealerFilter();
+    }
+
+    function updateHistory(filteredSpins = null) {
+      const history = document.getElementById('history');
+      const data = filteredSpins || spins;
+      history.innerHTML = data.map(s =>
+        `<div class='entry'><strong>${s.timestamp}</strong> | Dealer: ${s.dealer} | Number: ${s.number} | Lightning: ${s.lightning} | Wheel: ${s.wheelDirection} | Ball: ${s.ballDirection} | ${s.strength}</div>`
+      ).reverse().join('');
+    }
+
+    function updateStats() {
+      const stats = document.getElementById('stats');
+      let statHTML = '<h3>Number Frequency</h3><ul>';
+      for (let i = 0; i <= 36; i++) {
+        if (frequency[i] > 0) {
+          statHTML += `<li>${i}: ${frequency[i]}</li>`;
+        }
+      }
+      statHTML += '</ul>';
+      stats.innerHTML = statHTML;
+    }
+
+    function updatePredictor() {
+      const pred = document.getElementById('predictor');
+      const sortedFreq = Array.from(frequency.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([number]) => {
+          let section = Object.entries(wheelSections).find(([_, nums]) => nums.includes(number));
+          return `<strong>${number}</strong>${section ? ' (' + section[0] + ')' : ''}`;
+        });
+      pred.innerHTML = sortedFreq.join(', ');
+    }
+
+    function updateDealerFilter() {
+      const dealers = [...new Set(spins.map(s => s.dealer))];
+      const filter = document.getElementById('dealerFilter');
+      filter.innerHTML = '<option value="">All Dealers</option>' + dealers.map(d => `<option value="${d}">${d}</option>`).join('');
+    }
+
+    function filterByDealer() {
+      const dealer = document.getElementById('dealerFilter').value;
+      if (!dealer) return updateHistory();
+      const filteredSpins = spins.filter(s => s.dealer === dealer);
+      updateHistory(filteredSpins);
+    }
+  </script>
+</body>
+</html>
